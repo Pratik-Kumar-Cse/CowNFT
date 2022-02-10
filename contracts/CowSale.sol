@@ -63,7 +63,7 @@ contract Purchase is Ownable,Pausable,ReentrancyGuard {
         _;
     }
 
-    constructor(address _nft,address _x22,address _pair) public {
+    constructor(address _nft,address _x22,address _pair)  {
         require(_nft != address(0));
         require(_x22 != address(0));
         nft = x22IERC721(_nft);

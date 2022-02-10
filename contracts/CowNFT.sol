@@ -9,6 +9,8 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 contract Authorizable is Ownable {
 
+    using SafeMath for uint256;
+
     mapping(address => bool) public authorized;
     address[] public adminList;
 
@@ -16,22 +18,24 @@ contract Authorizable is Ownable {
     event RemoveAuthorized(address indexed _address, uint index);
 
     modifier onlyAuthorized() {
-        require(authorized[msg.sender] || owner() == msg.sender,"Authorizable: caller is not the SuperAdmin or Admin");
+        require(authorized[msg.sender] || owner() == msg.sender,"Cow Authorizable: caller is not the SuperAdmin or Admin");
         _;
     }
 
-    function addAuthorized(address _toAdd) onlyOwner public {
-        require(_toAdd != address(0),"Authorizable: _toAdd isn't vaild address");
+    function addAuthorized(address _toAdd) onlyOwner() external {
+        require(_toAdd != address(0),"Cow Authorizable: _toAdd isn't vaild address");
+        require(!authorized[_toAdd],"Cow Authorizable: _toAdd is already added");
         authorized[_toAdd] = true;
         adminList.push(_toAdd);
         emit AddAuthorized(_toAdd);
     }
 
-    function removeAuthorized(address _toRemove,uint _index) onlyOwner public {
-        require(_toRemove != address(0),"Authorizable: _toRemove isn't vaild address");
-        require(adminList[_index] == _toRemove,"Authorizable: _index isn't valid index");
+    function removeAuthorized(address _toRemove,uint _index) onlyOwner() external {
+        require(_toRemove != address(0),"Cow Authorizable: _toRemove isn't vaild address");
+        require(adminList[_index] == _toRemove,"Cow Authorizable: _index isn't valid index");
         authorized[_toRemove] = false;
-        delete adminList[_index];
+        adminList[_index] = adminList[(adminList.length).sub(1)]; 
+        adminList.pop();
         emit RemoveAuthorized(_toRemove,_index);
     }
 
@@ -41,7 +45,7 @@ contract Authorizable is Ownable {
 
 }
 
-contract NFT4Play is ERC721, Authorizable {
+contract WorldCow is ERC721, Authorizable {
 
     using Strings for uint256;
     using SafeMath for uint256;
@@ -59,7 +63,7 @@ contract NFT4Play is ERC721, Authorizable {
     mapping(address => EnumerableSet.UintSet) private _holderTokens;
     mapping(uint256 => string) public tokenFaction;
 
-    constructor(string memory _baseTokenURI,string memory _factionName) public ERC721("NFT4Play", "4Play") {
+    constructor(string memory _baseTokenURI,string memory _factionName) ERC721("WorldCow", "COW") {
         _setBaseURI(_baseTokenURI);
         faction = _factionName;
         totalSupply = 10000;
@@ -82,8 +86,8 @@ contract NFT4Play is ERC721, Authorizable {
     }
 
     function mint(address _to) public onlyAuthorized() {
-        require(_to != address(0),"NFT4Play: _to address not a valid");
-        require(counter <= totalSupply,"NFT4Play: maximum tokens minted");
+        require(_to != address(0),"WorldCow: _to address not a valid");
+        require(counter <= totalSupply,"WorldCow: maximum tokens minted");
         counter += 1;
         tokenFaction[counter] = faction;
         _holderTokens[_to].add(counter);
@@ -97,7 +101,7 @@ contract NFT4Play is ERC721, Authorizable {
     }
 
     function burn(uint _tokenId) public {
-        require(_isApprovedOrOwner(_msgSender(), _tokenId), "NFT4Play: burn caller is not owner nor approved");
+        require(_isApprovedOrOwner(_msgSender(), _tokenId), "WorldCow: burn caller is not owner nor approved");
         _holderTokens[msg.sender].remove(_tokenId);
         delete tokenFaction[_tokenId];
         _burn(_tokenId);
@@ -109,14 +113,14 @@ contract NFT4Play is ERC721, Authorizable {
 
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
-        require(_exists(tokenId), "NFT4Play: URI query for nonexistent token");
+        require(_exists(tokenId), "WorldCow: URI query for nonexistent token");
 
         string memory baseURI = _baseURI();
         return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString(),".json")) : "";
     }
 
     function transferFrom(address from,address to,uint256 tokenId) public override {
-        require(_isApprovedOrOwner(_msgSender(), tokenId), "NFT4Play: transfer caller is not owner nor approved");
+        require(_isApprovedOrOwner(_msgSender(), tokenId), "WorldCow: transfer caller is not owner nor approved");
         _holderTokens[from].remove(tokenId);
         _holderTokens[to].add(tokenId);
         _transfer(from, to, tokenId);
@@ -127,7 +131,7 @@ contract NFT4Play is ERC721, Authorizable {
     }
 
     function safeTransferFrom(address from,address to,uint256 tokenId,bytes memory _data) public override {
-        require(_isApprovedOrOwner(_msgSender(), tokenId), "NFT4Play: transfer caller is not owner nor approved");
+        require(_isApprovedOrOwner(_msgSender(), tokenId), "WorldCow: transfer caller is not owner nor approved");
         _holderTokens[from].remove(tokenId);
         _holderTokens[to].add(tokenId);
         _safeTransfer(from, to, tokenId, _data);
