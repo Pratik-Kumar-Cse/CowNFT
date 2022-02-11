@@ -33,7 +33,7 @@ contract Purchase is Ownable,Pausable,ReentrancyGuard {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
     
-    SwapPair public x22_eth_Pair;
+    SwapPair public x22_bnb_Pair;
     
     x22IERC721 public nft;
     IERC20 public x22;
@@ -44,16 +44,16 @@ contract Purchase is Ownable,Pausable,ReentrancyGuard {
     
     uint256 public maxTokenForOneSaleTransaction;
     uint256 public discount;
-    uint256 public priceInETH;
+    uint256 public priceInBNB;
     uint256 public priceInX22;
 
     bool public isDiscount;
 
-    event BuyNFTforETH(address _buyer,uint256 _amount,uint256 _numberOfToken);
+    event BuyNFTforBNB(address _buyer,uint256 _amount,uint256 _numberOfToken);
     event BuyNFTforX22(address _buyer,uint256 _amount,uint256 _numberOfToken);
     event UpdateWhitelist(bool _isWhitelist);
     event UpdateIsDiscount(bool _isDiscount);
-    event SetPrices(uint256 _priceInETH);
+    event SetPrices(uint256 _priceInBNB);
     event SetPricesX22(uint256 _priceInX22);
     event SetDiscount(uint256 _discount);
     event SetTokensLimit(uint256 _normalSale);
@@ -68,8 +68,8 @@ contract Purchase is Ownable,Pausable,ReentrancyGuard {
         require(_x22 != address(0));
         nft = x22IERC721(_nft);
         x22 = IERC20(_x22);
-        x22_eth_Pair = SwapPair(_pair);
-        priceInETH = 60000000000000000;
+        x22_bnb_Pair = SwapPair(_pair);
+        priceInBNB = 60000000000000000;
         priceInX22 = 100000000000000000000;
         discount = 5000;
         maxTokenForOneSaleTransaction = 20;
@@ -86,10 +86,10 @@ contract Purchase is Ownable,Pausable,ReentrancyGuard {
         emit UpdateIsDiscount(isDiscount);
     }
     
-    function setPrices(uint256 _priceInETH) public onlyOwner() {
-        require(_priceInETH > 0 ,"Purchase: Price must be greater than zero");
-        priceInETH = _priceInETH;
-        emit SetPrices(_priceInETH);
+    function setPrices(uint256 _priceInBNB) public onlyOwner() {
+        require(_priceInBNB > 0 ,"Purchase: Price must be greater than zero");
+        priceInBNB = _priceInBNB;
+        emit SetPrices(_priceInBNB);
     }
 
     function setPricesX22(uint256 _priceInX22) public onlyOwner() {
@@ -125,15 +125,15 @@ contract Purchase is Ownable,Pausable,ReentrancyGuard {
     }
     
     
-    function buyWithETH(uint256 _numberOfToken) public payable nonReentrant() validTokensAmount(_numberOfToken) whenNotPaused(){
+    function buyWithBNB(uint256 _numberOfToken) public payable nonReentrant() validTokensAmount(_numberOfToken) whenNotPaused(){
         require (_numberOfToken > 0 ,"Purchase: _numberOfToken must be greater than zero");
-        require(msg.value >= priceInETH.mul(_numberOfToken),"Purchase: amount of ETH must be equal to token price" ); 
-        uint256 extraAmount = msg.value.sub(priceInETH.mul(_numberOfToken));
-        if(_safeTransferETH(treasurerAddress,priceInETH.mul(_numberOfToken))){
+        require(msg.value >= priceInBNB.mul(_numberOfToken),"Purchase: amount of BNB must be equal to token price" ); 
+        uint256 extraAmount = msg.value.sub(priceInBNB.mul(_numberOfToken));
+        if(_safeTransferBNB(treasurerAddress,priceInBNB.mul(_numberOfToken))){
             nft.batchMint(msg.sender,_numberOfToken);    
         }
-        _safeTransferETH(msg.sender,extraAmount);
-        emit BuyNFTforETH(msg.sender,priceInETH.mul(_numberOfToken),_numberOfToken);
+        _safeTransferBNB(msg.sender,extraAmount);
+        emit BuyNFTforBNB(msg.sender,priceInBNB.mul(_numberOfToken),_numberOfToken);
     }
     
     function buyWithX22(uint256 amount,uint256 _numberOfToken) public nonReentrant() validTokensAmount(_numberOfToken) whenNotPaused(){
@@ -153,17 +153,17 @@ contract Purchase is Ownable,Pausable,ReentrancyGuard {
     }
     
     function amountToPay() public view returns(uint256) {
-        uint256 temp = priceInETH.mul(DENOMINATOR.sub(discount)).div(DENOMINATOR);
+        uint256 temp = priceInBNB.mul(DENOMINATOR.sub(discount)).div(DENOMINATOR);
         return getPriceInx22(temp);
     }
     
     function getPriceInx22(uint256 _amount) public view returns(uint256){
-        (uint256 reserve0,uint256 reserve1,) = x22_eth_Pair.getReserves();
+        (uint256 reserve0,uint256 reserve1,) = x22_bnb_Pair.getReserves();
         uint256 temp = reserve0.mul(10**18).div(reserve1);
         return temp.mul(_amount).div(10**18);
     }
     
-    function _safeTransferETH(address to, uint256 value) internal returns (bool) {
+    function _safeTransferBNB(address to, uint256 value) internal returns (bool) {
         (bool success, ) = to.call{value: value}(new bytes(0));
         return success;
     }
