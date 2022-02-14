@@ -152,6 +152,22 @@ contract WorldCow is ERC721, ERC2981, Authorizable {
         _setDefaultRoyalty(_receiver, _royaltyFeesinBips);
     }
 
+    function setTokenRoyalty(uint256 _tokenId, address _receiver, uint96 _feeNumerator) public onlyOwner {
+        _setTokenRoyalty(_tokenId, _receiver, _feeNumerator);
+    }
+
+    function resetTokenRoyalty(uint256 _tokenId) public onlyOwner {
+        _resetTokenRoyalty(_tokenId);
+    }
+
+    function setDefaultRoyalty(address _receiver, uint96 _feeNumerator) public onlyOwner {
+        _setDefaultRoyalty(_receiver, _feeNumerator);
+    }
+
+    function deleteDefaultRoyalty() public onlyOwner {
+        _deleteDefaultRoyalty();
+    }
+
     function tokenOfOwnerByIndex(address _owner, uint256 _index) public view returns (uint256){
         return _holderTokens[_owner].at(_index);
     }
