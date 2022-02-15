@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.11;
 pragma experimental ABIEncoderV2 ;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
@@ -42,31 +42,130 @@ contract Authorizable is Ownable {
     function getAdminList() public view returns(address[] memory ){
         return adminList;
     }
-
 }
 
-contract WorldCow is ERC721, Authorizable {
+interface IERC2981 is IERC165 {
+  
+    function royaltyInfo(
+        uint256 _tokenId,
+        uint256 _salePrice
+    ) external view returns (
+        address receiver,
+        uint256 royaltyAmount
+    );
+}
+
+abstract contract ERC2981 is IERC2981, ERC165 {
+    struct RoyaltyInfo {
+        address receiver;
+        uint96 royaltyFraction;
+    }
+
+    RoyaltyInfo private _defaultRoyaltyInfo;
+    mapping(uint256 => RoyaltyInfo) private _tokenRoyaltyInfo;
+
+    function supportsInterface(bytes4 interfaceId) public view virtual override(IERC165, ERC165) returns (bool) {
+        return interfaceId == type(IERC2981).interfaceId || super.supportsInterface(interfaceId);
+    }
+
+    function royaltyInfo(uint256 _tokenId, uint256 _salePrice)
+        external
+        view
+        virtual
+        override
+        returns (address, uint256)
+    {
+        RoyaltyInfo memory royalty = _tokenRoyaltyInfo[_tokenId];
+
+        if (royalty.receiver == address(0)) {
+            royalty = _defaultRoyaltyInfo;
+        }
+
+        uint256 royaltyAmount = (_salePrice * royalty.royaltyFraction) / _feeDenominator();
+
+        return (royalty.receiver, royaltyAmount);
+    }
+
+    function _feeDenominator() internal pure virtual returns (uint96) {
+        return 10000;
+    }
+
+    function _setDefaultRoyalty(address receiver, uint96 feeNumerator) internal virtual {
+        require(feeNumerator <= _feeDenominator(), "ERC2981: royalty fee will exceed salePrice");
+        require(receiver != address(0), "ERC2981: invalid receiver");
+
+        _defaultRoyaltyInfo = RoyaltyInfo(receiver, feeNumerator);
+    }
+
+    function _deleteDefaultRoyalty() internal virtual {
+        delete _defaultRoyaltyInfo;
+    }
+
+    function _setTokenRoyalty(
+        uint256 tokenId,
+        address receiver,
+        uint96 feeNumerator
+    ) internal virtual {
+        require(feeNumerator <= _feeDenominator(), "ERC2981: royalty fee will exceed salePrice");
+        require(receiver != address(0), "ERC2981: Invalid parameters");
+
+        _tokenRoyaltyInfo[tokenId] = RoyaltyInfo(receiver, feeNumerator);
+    }
+
+    function _resetTokenRoyalty(uint256 tokenId) internal virtual {
+        delete _tokenRoyaltyInfo[tokenId];
+    }
+}
+
+contract WorldCow is ERC721, ERC2981, Authorizable {
 
     using Strings for uint256;
     using SafeMath for uint256;
     using EnumerableSet for EnumerableSet.UintSet;
 
     uint256 public counter = 0;
-
     uint256 public totalSupply;
-
     string public faction;
-
     string private baseURI_;
 
     // Mapping from holder address to their (enumerable) set of owned tokens
     mapping(address => EnumerableSet.UintSet) private _holderTokens;
     mapping(uint256 => string) public tokenFaction;
 
-    constructor(string memory _baseTokenURI,string memory _factionName) ERC721("WorldCow", "COW") {
+    constructor(string memory _baseTokenURI,string memory _factionName, uint96 _royaltyFeesinBips) ERC721("WorldCow", "COW") {
         _setBaseURI(_baseTokenURI);
         faction = _factionName;
         totalSupply = 10000;
+        setRoyaltyInfo(owner(), _royaltyFeesinBips);
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721, ERC2981)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
+
+    function setRoyaltyInfo(address _receiver, uint96 _royaltyFeesinBips) public onlyOwner {
+        _setDefaultRoyalty(_receiver, _royaltyFeesinBips);
+    }
+
+    function setTokenRoyalty(uint256 _tokenId, address _receiver, uint96 _feeNumerator) public onlyOwner {
+        _setTokenRoyalty(_tokenId, _receiver, _feeNumerator);
+    }
+
+    function resetTokenRoyalty(uint256 _tokenId) public onlyOwner {
+        _resetTokenRoyalty(_tokenId);
+    }
+
+    function setDefaultRoyalty(address _receiver, uint96 _feeNumerator) public onlyOwner {
+        _setDefaultRoyalty(_receiver, _feeNumerator);
+    }
+
+    function deleteDefaultRoyalty() public onlyOwner {
+        _deleteDefaultRoyalty();
     }
 
     function tokenOfOwnerByIndex(address _owner, uint256 _index) public view returns (uint256){
@@ -140,5 +239,4 @@ contract WorldCow is ERC721, Authorizable {
     function getTokens(address _address) public view returns(uint256[] memory){
         return _holderTokens[_address].values();
     }
-
 }
