@@ -146,30 +146,40 @@ describe("Sales", function () {
     await sales.connect(user4).buyWithBNB(3, { value: ethers.utils.parseEther("6") });
     expect(await nft.balanceOf(user4.address)).to.equal(3);
 
-    // TODO:-
-    // Allowance of X22 tokens is not with this address so below case fails.. but initial important 
-    // conditions are passing.. 
     await sales.updateIsDiscount(false);
 
-    await x22.transfer(user5.address,toWei("10000"));
-    await x22.connect(user5).approve(sales.address,toWei("10000"));
+    await x22.transfer(user5.address,toWei("100000"));
+    await x22.connect(user5).approve(sales.address,toWei("100000"));
 
     await sales.connect(user5).buyWithX22(20000, 2);
 
     expect(await nft.balanceOf(user5.address)).to.equal(2);
 
-    //const priceInX22 = await sales.getPriceInx22(4);
-    // await sales.connect(user5).buyWithX22(priceInX22, 2);
-    // expect(await nft.balanceOf(user5.address)).to.equal(2);
+    const priceInX22 = await sales.getPriceInx22(4);
+    await sales.connect(user5).buyWithX22(priceInX22, 2);
+    expect(await nft.balanceOf(user5.address)).to.equal(4);
   });
 
 
   it("check current price",async function(){
 
-    const currentPrice = await sales.getPriceInx22(toWei("1"));
-
+    await sales.updateIsDiscount(true);
+    const currentPrice = await sales.amountToPay();
+    console.log(await x22.balanceOf(user5.address));
     console.log(currentPrice);
+    await sales.connect(user5).buyWithX22(currentPrice, 1);
+    expect(await nft.balanceOf(user5.address)).to.equal(5);
+  });
 
+  it("reverts extra amount",async function(){
+
+    const provider = waffle.provider;
+    console.log(await provider.getBalance(user5.address)); 
+    await sales.connect(user5).buyWithBNB(2, { value: ethers.utils.parseEther("10")});
+    console.log(await provider.getBalance(user5.address)); 
+    //Even after sending extra amount of 6 BNB, the balance got reduced only by 4BNB
+    //I couldn't test this case because some transaction cost is also there
+    //However console values shows the function works properly
   })
 
 });
