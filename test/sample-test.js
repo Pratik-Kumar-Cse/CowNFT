@@ -1,8 +1,13 @@
 const { expect } = require("chai");
+const { hexStripZeros } = require("ethers/lib/utils");
 const { ethers } = require("hardhat");
 
-let nft;
-let owner,user1,user2,user3;
+const token = require("./token.json");
+
+let nft,sales,x22;
+let owner,user1,user2,user3,user4,user5;
+
+let accountToImpersonate = "0x8313665D1eaBDa663CB0c9C976c41679A8C22344";
 
 async function getAddresses() {
   [owner,user1,user2,user3,user4,user5] = await ethers.getSigners();
@@ -19,8 +24,27 @@ async function deploy() {
   await nft.deployed();
 
   const Sales = await ethers.getContractFactory("Purchase");
-  sales = await Sales.deploy(nft.address,"0xb9B0768d969bF92156c4d836A6B18Dd75a6fAa73", "0x4287AfE6CDD73E932248ADBE27BDEE0E5094D503");
+  sales = await Sales.deploy(nft.address,"0x87e41175921d283c10Ce42C9200AA3c8d51835A2", "0xc08e5f3D4fD146aB1AB0ae3AeeF1cDa4Fb30ED10");
   await sales.deployed();
+
+  x22 = await ethers.getContractAt(token.abi,"0x87e41175921d283c10Ce42C9200AA3c8d51835A2");
+
+  console.log("Cow NFT address:",nft.address);
+  console.log("CowSale address:",sales.address);
+  console.log("X22 address:",x22.address);
+
+  await hre.network.provider.request({
+    method: "hardhat_impersonateAccount",
+    params: [accountToImpersonate],
+  });
+  const admin = await ethers.getSigner(accountToImpersonate);
+  console.log(admin.address)
+  console.log(await x22.balanceOf(admin.address));
+  await x22.connect(admin).transfer(owner.address,toWei("100000"));
+  await hre.network.provider.request({
+    method: "hardhat_stopImpersonatingAccount",
+    params: [accountToImpersonate],
+  });
 
 }
 
@@ -126,12 +150,26 @@ describe("Sales", function () {
     // Allowance of X22 tokens is not with this address so below case fails.. but initial important 
     // conditions are passing.. 
     await sales.updateIsDiscount(false);
+
+    await x22.transfer(user5.address,toWei("10000"));
+    await x22.connect(user5).approve(sales.address,toWei("10000"));
+
     await sales.connect(user5).buyWithX22(20000, 2);
+
     expect(await nft.balanceOf(user5.address)).to.equal(2);
 
     //const priceInX22 = await sales.getPriceInx22(4);
     // await sales.connect(user5).buyWithX22(priceInX22, 2);
     // expect(await nft.balanceOf(user5.address)).to.equal(2);
   });
+
+
+  it("check current price",async function(){
+
+    const currentPrice = await sales.getPriceInx22(toWei("1"));
+
+    console.log(currentPrice);
+
+  })
 
 });
